@@ -1,0 +1,104 @@
+*{
+  margin:0px;
+  padding:0px;
+}
+.header{
+  background-color: black;
+  height: 54px;
+  width: 100%;
+}
+.header a{
+  text-decoration:none;
+  color: whitesmoke;
+  font-size: 24px;
+  padding:10px 10px;
+  font-weight: 500;
+  float: left;
+}
+.header .last{
+  text-decoration:none;
+  color: whitesmoke;
+  font-size: 24px;
+  padding:10px 10px;
+  font-weight: 500;
+  float: right;
+}
+.title{
+  margin-top: 0px;
+  font-size: 100px;
+  text-align: center;
+  margin-bottom: 0px;
+  display:block;
+  font-weight: 600;
+}
+.title2{
+  text-align: center;
+  font-size: 40px;
+  display:block;
+  font-weight: 500;
+  margin-top: 10px;
+}
+.main{
+  position:relative;
+  max-width: 620px;
+  max-height: 237px;
+  display: block;
+  margin: auto;
+}
+.main .background{
+  margin:auto;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  margin-top: 100px;
+  
+}
+
+#overlay1:hover{
+  opacity: 1;
+}
+#overlay2:hover{
+  opacity: 1;
+}
+#overlay3:hover{
+  opacity: 1;
+}
+#overlay4:hover{
+  opacity: 1;
+}
+#overlay1{
+  position:absolute;
+  display: block;
+  width: 178px;
+  bottom:47px;
+  left:2px;
+  opacity: 0;
+  z-index: 2;
+}
+#overlay2{
+  position:absolute;
+  display: block;
+  width:217px;
+  bottom:3px;
+  left:59px;
+  opacity: 0;
+  z-index:0;
+}
+#overlay3{
+  position:absolute;
+  display: block;
+  width:115px;
+  bottom:60px;
+  left:236px;
+  opacity: 0;
+  z-index:1;
+}
+#overlay4{
+  position:absolute;
+  display: block;
+  width:337px;
+  bottom:30px;
+  left:282px;
+  opacity: 0;
+  z-index:0;
+}
