@@ -1,0 +1,26 @@
+{
+    "id": "219748B2",
+    "path": "D:/Project/Database_UI/DataBaseUI-Shiny/ResultPage/app.R",
+    "project_path": "app.R",
+    "type": "r_source",
+    "hash": "4204969206",
+    "contents": "",
+    "dirty": false,
+    "created": 1655196608982.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "77,41",
+        "scrollLine": "55"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1655199202,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1655199202781,
+    "read_only": false,
+    "read_only_alternatives": []
+}
