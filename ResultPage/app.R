@@ -6,15 +6,26 @@ library(collapsibleTree)
 library(shinyhelper)
 library(plotly)
 library(data.tree)
+library(ggplot2)
+library(shinyBS)
 
-tissue_region <- Node$new("Selected tissue region")
-cell_type1 <- tissue_region$AddChild("cell_type1")
-cell_type2 <- tissue_region$AddChild("cell_type2")
-cell_type1_cluster1 <-cell_type1$AddChild("cell_type1_cluster1")
-cell_type1_cluster2 <-cell_type1$AddChild("cell_type1_cluster2")
-cell_type1_cluster2_01 <- cell_type1_cluster2$AddChild("cell_type1_cluster2_01")
-cell_type1_cluster2_02 <- cell_type1_cluster2$AddChild("cell_type1_cluster2_02")
-dtree <- tissue_region
+Cell_Clusters <- Node$new("Selected cell type")
+cluster0 <- Cell_Clusters$AddChild("cluster0")
+cluster1 <-cluster0$AddChild("cluster1")
+cluster2 <-cluster0$AddChild("cluster2")
+cluster3 <- cluster0$AddChild("cluster3")
+cluster4 <-cluster2$AddChild("cluster4")
+cluster5 <-cluster2$AddChild("cluster5")
+
+cluster6 <- Cell_Clusters$AddChild("cluster6")
+cluster7 <-cluster6$AddChild("cluster7")
+cluster8 <-cluster6$AddChild("cluster8")
+cluster9 <- cluster8$AddChild("cluster9")
+cluster10 <-cluster8$AddChild("cluster10")
+cluster11 <-cluster10$AddChild("cluster11")
+cluster12 <-cluster10$AddChild("cluster12")
+
+dtree <- Cell_Clusters
 
 ui <- navbarPage(title = "AdultEncephalon",
            id = "lb",
@@ -43,14 +54,113 @@ ui <- navbarPage(title = "AdultEncephalon",
                                                                     width = "auto") %>% withSpinner(color= "#C0C0C0")))),
                     hr(),
                     
-                    mainPanel(
-                      DTOutput('tbl')
-                    )
+                    # Display clickable Table
+                    conditionalPanel(condition = "output.node_selected == true",
+                                     fluidRow(column(width = 8,offset=2,DTOutput(outputId  = 'tbl')),
+                                              column(width =2, actionButton(inputId = "search_gene",
+                                                                            label = "Go to Gene！",
+                                                                            style = "background-color: #C0C0C0;"))) %>%
+                                       helper(icon = "question-circle",
+                                              colour = "#C0C0C0",
+                                              type = "inline",
+                                              title = "Marker genes",
+                                              easyClose = TRUE,
+                                              content = c("Click on any gene on the table and hit the <b>Go to gene!</b> button to visualize
+                                               gene expression and other features."))),
                     
-                    
-                    
+                    hr(),
+                    fluidRow(column(width=4,offset=2,plotlyOutput(outputId = "seurat_umap_2d") %>% withSpinner(color= "#C0C0C0")),
+                             column(width=4,plotlyOutput(outputId = "seurat_tsne_2d")%>% withSpinner(color= "#C0C0C0")))
+            
               
-           )
+           ),
+           # Clusters tab
+           #======================================================================================================
+           tabPanel(title = "Clusters",
+                    value = "clusters",
+                    br(),
+                    br(),
+                    br(),
+                    br(),
+                    
+                    fluidRow(column(width=2,
+                                    sliderInput(inputId = "opacity",
+                                                label = "Point Opacity",
+                                                min = 0,
+                                                max = 1,
+                                                value = 0.5,
+                                                step = 0.1),
+                                    sliderInput(inputId = "p_size",
+                                                label = "Point Size",
+                                                min = 1,
+                                                max = 10,
+                                                value = 5,
+                                                step = 0.5)),
+                             column(width = 5,
+                                    plotlyOutput(outputId = "seurat_umap_2d_C") %>% withSpinner(color= "#C0C0C0")),
+                             column(width = 5,
+                                    plotlyOutput(outputId = "seurat_tsne_2d_C") %>% withSpinner(color= "#C0C0C0")),
+
+                    )
+                    ),
+           
+           # Genes
+           #===========================================================================================
+           tabPanel(title = "Genes",
+                    value = "genes",
+                    br(),
+                    br(),
+                    br(),
+                    br(),
+                    
+                    tabsetPanel(
+                      tabPanel(title = "Example Species Genes",
+                               value = "example species genes",
+                               fluidRow(column(width = 8,
+                                               offset = 2,
+                                               DTOutput(outputId = "GenePanelTable"),
+                                               actionButton(inputId = "go",
+                                                            label = "Go!",
+                                                            style = "background-color: #C0C0C0;"),
+                                               ))),
+                      
+                      tabPanel(title = "Orthologs",
+                               value = "ortho",
+                               fluidRow(wellPanel(
+                                 tags$button(id = "ciona",
+                                             class = "btn action-button",
+                                             img(src = "sea_squirt.png",
+                                                 height = "50px")),
+                                 bsTooltip(id = "ciona",
+                                           title = "<b>Sea squirt</b><br><i>Ciona intestinalis</i><br>Ensembl 97",
+                                           placement = "bottom",
+                                           trigger = "hover"),
+                                 tags$button(id = "hagfish",
+                                             class = "btn action-button",
+                                             img(src = "hagfish.png",
+                                                 height = "50px")),
+                                 bsTooltip(id = "hagfish",
+                                           title = "<b>Inshore hagfish</b><br><i>Eptatretus burgeri</i><br>Ensembl 97",
+                                           placement = "bottom",
+                                           trigger = "hover"),
+                               )),
+                               column(width = 8,
+                                      offset = 2,
+                                      DTOutput(outputId = "ortho"),
+                                      actionButton(inputId = "ortho_go",
+                                                   label = "Go!",
+                                                   style = "background-color: #C0C0C0;"))
+                                %>% 
+                        helper(icon = "question-circle",
+                               colour = "#C0C0C0",
+                               type = "inline",
+                               title = "Genes",
+                               easyClose = TRUE,
+                               content = c("Some help info"))),
+                      
+                    ),
+                    #Expression
+                    )
 )
 
 server <- function(input, output, session) {
@@ -64,7 +174,7 @@ server <- function(input, output, session) {
   # Taxonomy
   #===========================================================================================
   
-  # Plot collapsible tree, treat clicked node/leaf as input to reactive expressions
+  # Plot collapsible tree
   output$plot <- renderCollapsibleTree({
     collapsibleTree(dtree, 
                     inputId = "node",
@@ -72,12 +182,86 @@ server <- function(input, output, session) {
                     tooltip = TRUE,
                     collapsed = input$collapse)
   })
-  output$tbl <- renderDT(iris, options = list(lengthChange = FALSE))
+  # Plot marker gene table based on selected node
+  output$tbl <- renderDT({
+    if (length(input$node) >0 ) {
+
+      file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
+      target_table<-read.csv(file_path,sep='\t',head=TRUE)
+      datatable(target_table,selection = list(mode="single",target="cell"))
+    }
+  })
   
-  output$node_list <-renderText({
-    paste("You have selected",input$node)
+  # Observe event
+  observeEvent(input$search_gene,{
+    updateNavbarPage(session,"lb",selected = "genes")
+  })
+  output$GenePanelTable <- renderDT({
+    all_marker_table <- read.csv('../DemoData/clusters_markers_table/all_markers.txt',sep='\t',head=TRUE)
+    
+    if (length(input$tbl_cells_selected) == 0) {
+      datatable(all_marker_table)
+    } else if (length(input$tbl_cells_selected) > 0){
+      file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
+      target_table<-read.csv(file_path,sep='\t',head=TRUE)
+      all_marker_table[which(all_marker_table$gene == target_table[input$tbl_cells_selected[1],7]),]
+    }
+    
+
+  })
+  
+  # Plot umap in first panel
+  output$seurat_umap_2d <- renderPlotly({
+    umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
+    if (length(input$node) == 0) {
+      plot_ly(type = 'scatter', mode = 'markers') %>% 
+        add_markers(data = umap_table ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x,showlegend = F)
+    } else if (length(input$node) >0){
+      target_cluster = umap_table[which(umap_table$x == gsub('[cluster]','',tail(input$node, n=1))),]
+      other_cluster = umap_table[which(umap_table$x != gsub('[cluster]','',tail(input$node, n=1))),]
+      plot_ly(type = 'scatter', mode = 'markers') %>%
+        add_markers(data = target_cluster ,x =  ~UMAP_1, y = ~UMAP_2,marker=list(opacity = 1,color='blue'),showlegend = F) %>%
+        add_markers(data = other_cluster ,x =  ~UMAP_1, y = ~UMAP_2,marker=list(opacity = 0.2,color='grey'),showlegend = F)
+    }
+  })
+  
+  # Plot tsne in first panel
+  output$seurat_tsne_2d <- renderPlotly({
+    tsne_table = read.csv('../DemoData/clusters_embeddings_table/tsne.txt',sep='\t')
+    if (length(input$node) == 0) {
+      plot_ly(type = 'scatter', mode = 'markers') %>% 
+        add_markers(data = tsne_table ,x =  ~tSNE_1, y = ~tSNE_2,split= ~x,showlegend = F)
+    } else if (length(input$node) >0) {
+      target_cluster = tsne_table[which(tsne_table$x == gsub('[cluster]','',tail(input$node, n=1))),]
+      other_cluster = tsne_table[which(tsne_table$x != gsub('[cluster]','',tail(input$node, n=1))),]
+      plot_ly(type = 'scatter', mode = 'markers') %>%
+        add_markers(data = target_cluster ,x =  ~tSNE_1, y = ~tSNE_2,marker=list(opacity = 1,color='blue'),showlegend = F) %>%
+        add_markers(data = other_cluster ,x =  ~tSNE_1, y = ~tSNE_2,marker=list(opacity = 0.2,color='grey'),showlegend = F)
+    }
+  })
+  
+  # Plot umap in seconf panel
+  output$seurat_umap_2d_C <- renderPlotly({
+    umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
+    plot_ly(type = 'scatter', mode = 'markers') %>% 
+      add_markers(data = umap_table ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
+  })
+  
+  # Plot tsne in seconf panel
+  output$seurat_tsne_2d_C <- renderPlotly({
+    tsne_table = read.csv('../DemoData/clusters_embeddings_table/tsne.txt',sep='\t')
+    plot_ly(type = 'scatter', mode = 'markers') %>% 
+      add_markers(data = tsne_table ,x =   ~tSNE_1, y =  ~tSNE_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
   })
 
+  # Conditional Panel 
+  output$node_selected <- reactive({
+    if (length(input$node) > 0) {
+      TRUE
+    }
+  })
+  outputOptions(output, "node_selected", suspendWhenHidden = FALSE) 
+  
   
 
 }
