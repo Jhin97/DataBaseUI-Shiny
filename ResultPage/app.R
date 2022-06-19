@@ -118,7 +118,7 @@ ui <- navbarPage(title = "AdultEncephalon",
                                value = "example species genes",
                                fluidRow(column(width = 8,
                                                offset = 2,
-                                               DTOutput(outputId = "GenePanelTable"),
+                                               DTOutput(outputId = "GenePanelTable") %>% withSpinner(color= "#C0C0C0"),
                                                actionButton(inputId = "go",
                                                             label = "Go!",
                                                             style = "background-color: #C0C0C0;"),
@@ -158,9 +158,51 @@ ui <- navbarPage(title = "AdultEncephalon",
                                easyClose = TRUE,
                                content = c("Some help info"))),
                       
+                      
                     ),
-                    #Expression
-                    )
+                    tabsetPanel(id = "g",
+                                
+                                tabPanel(title = "Expression",
+                                         value = "expression",
+                                         fluidRow(column(width = 2,
+                                                         
+                                                         sliderInput(inputId = "opacity2",
+                                                                     label = "Point opacity:",
+                                                                     min = 0,
+                                                                     max = 1,
+                                                                     value = 0.5,
+                                                                     step = 0.1),
+                                                         sliderInput(inputId = "p_size2",
+                                                                     label = "Point size:",
+                                                                     min = 1,
+                                                                     max = 10,
+                                                                     value = 5,
+                                                                     step = 0.5)
+                                         ),
+                                         
+                                         column(width = 5,
+                                                plotlyOutput(outputId = "seurat_umap_2d_G") %>% 
+                                                  withSpinner(color= "#C0C0C0")),
+                                         column(width = 5,
+                                                plotlyOutput(outputId = "seurat_tsne_2d_G") %>% 
+                                                  withSpinner(color= "#C0C0C0"))),
+                                         
+                                         hr(),
+                                         
+                                         fluidRow(column(width = 10,
+                                                         offset = 1,
+                                                         plotOutput(outputId = "seurat_violin") %>% 
+                                                           withSpinner(color= "#C0C0C0"))),
+                                         
+                                         hr(),
+                                         
+                                         fluidRow(column(width = 10,
+                                                         offset = 1,
+                                                         plotlyOutput(outputId = "mc_barplot") %>% 
+                                                           withSpinner(color= "#C0C0C0")))
+                                         
+                                ),
+                    ),)
 )
 
 server <- function(input, output, session) {
@@ -193,21 +235,30 @@ server <- function(input, output, session) {
   })
   
   # Observe event
+  v <- reactiveValues(data = FALSE)
+  
   observeEvent(input$search_gene,{
     updateNavbarPage(session,"lb",selected = "genes")
   })
+  
+  observeEvent(input$go,{
+    v$data <- go(TRUE)
+  })
+  
+  
   output$GenePanelTable <- renderDT({
     all_marker_table <- read.csv('../DemoData/clusters_markers_table/all_markers.txt',sep='\t',head=TRUE)
     
     if (length(input$tbl_cells_selected) == 0) {
-      datatable(all_marker_table)
+      #datatable(all_marker_table)
+      datatable(all_marker_table,selection = list(mode="single",target="cell") ) 
     } else if (length(input$tbl_cells_selected) > 0){
       file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
       target_table<-read.csv(file_path,sep='\t',head=TRUE)
-      all_marker_table[which(all_marker_table$gene == target_table[input$tbl_cells_selected[1],7]),]
+      result_table <- all_marker_table[which(all_marker_table$gene == target_table[input$tbl_cells_selected[1],7]),]
+      datatable(result_table,selection = list(mode="single",target="cell"))
     }
     
-
   })
   
   # Plot umap in first panel
@@ -240,20 +291,49 @@ server <- function(input, output, session) {
     }
   })
   
-  # Plot umap in seconf panel
+  # Plot umap in second panel
   output$seurat_umap_2d_C <- renderPlotly({
     umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
     plot_ly(type = 'scatter', mode = 'markers') %>% 
       add_markers(data = umap_table ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
   })
   
-  # Plot tsne in seconf panel
+  # Plot tsne in second panel
   output$seurat_tsne_2d_C <- renderPlotly({
     tsne_table = read.csv('../DemoData/clusters_embeddings_table/tsne.txt',sep='\t')
     plot_ly(type = 'scatter', mode = 'markers') %>% 
       add_markers(data = tsne_table ,x =   ~tSNE_1, y =  ~tSNE_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
   })
 
+  # Plot umap in third panel
+  output$seurat_umap_2d_G <- renderPlotly({
+    umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
+    if (length(input$tbl_cells_selected) == 0 & length(input$result_table_cells_selected) == 0 ) {
+      plot_ly(type = 'scatter', mode = 'markers') %>% 
+        add_markers(data = umap_table ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
+    } else if (length(input$tbl_cells_selected) > 0 & input$go == FALSE) {
+      
+      
+      file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
+      target_table<-read.csv(file_path,sep='\t',head=TRUE)
+      selected_gene = target_table[input$tbl_cells_selected[1],7]
+      
+      expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
+      tc = filter(expression_table,selected_gene !=0)
+      oc = filter(expression_table,selected_gene ==0)
+      
+      #tc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,selected_gene) %>% filter(selected_gene != 0)
+      #oc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,selected_gene) %>% filter(selected_gene == 0)
+      print(selected_gene)
+      print(dim(tc))
+      
+      plot_ly(type = 'scatter', mode = 'markers') %>% 
+        add_markers(data = tc ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
+        add_markers(data = oc ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=0.2,color='grey'),showlegend = F)
+    }
+    
+  })
+  
   # Conditional Panel 
   output$node_selected <- reactive({
     if (length(input$node) > 0) {
