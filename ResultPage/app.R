@@ -57,7 +57,7 @@ ui <- navbarPage(title = "AdultEncephalon",
                     # Display clickable Table
                     conditionalPanel(condition = "output.node_selected == true",
                                      fluidRow(column(width = 8,offset=2,DTOutput(outputId  = 'tbl')),
-                                              column(width =2, actionButton(inputId = "search_gene",
+                                              column(width = 1, actionButton(inputId = "search_gene",
                                                                             label = "Go to Gene！",
                                                                             style = "background-color: #C0C0C0;"))) %>%
                                        helper(icon = "question-circle",
@@ -119,6 +119,9 @@ ui <- navbarPage(title = "AdultEncephalon",
                                fluidRow(column(width = 8,
                                                offset = 2,
                                                DTOutput(outputId = "GenePanelTable") %>% withSpinner(color= "#C0C0C0"),
+                                               actionButton(inputId = "reset",
+                                                            label = "Reset Table",
+                                                            style = "background-color: #C0C0C0;"),
                                                actionButton(inputId = "go",
                                                             label = "Go!",
                                                             style = "background-color: #C0C0C0;"),
@@ -235,14 +238,14 @@ server <- function(input, output, session) {
   })
   
   # Observe event
-  v <- reactiveValues(data = FALSE)
+  v <- reactiveValues(data = NULL)
   
   observeEvent(input$search_gene,{
     updateNavbarPage(session,"lb",selected = "genes")
   })
   
-  observeEvent(input$go,{
-    v$data <- go(TRUE)
+  eventReactive(input$go,{
+    v$data <- go(100)
   })
   
   
@@ -308,22 +311,38 @@ server <- function(input, output, session) {
   # Plot umap in third panel
   output$seurat_umap_2d_G <- renderPlotly({
     umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
+    expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
+    
+    ##默认状态下第一页和第三页表格都没有选中的情况
     if (length(input$tbl_cells_selected) == 0 & length(input$result_table_cells_selected) == 0 ) {
       plot_ly(type = 'scatter', mode = 'markers') %>% 
         add_markers(data = umap_table ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
-    } else if (length(input$tbl_cells_selected) > 0 & input$go == FALSE) {
       
-      
+    }
+    #第一页表格选中后点击search按钮进行跳转的情况
+    else if (length(input$tbl_cells_selected) > 0 & is.null(v$data)) {
+    
       file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
       target_table<-read.csv(file_path,sep='\t',head=TRUE)
       selected_gene = target_table[input$tbl_cells_selected[1],7]
       
-      expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
-      tc = filter(expression_table,selected_gene !=0)
-      oc = filter(expression_table,selected_gene ==0)
+      tc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] != 0)
+      oc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] == 0)
       
-      #tc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,selected_gene) %>% filter(selected_gene != 0)
-      #oc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,selected_gene) %>% filter(selected_gene == 0)
+      
+      plot_ly(type = 'scatter', mode = 'markers') %>% 
+        add_markers(data = tc ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
+        add_markers(data = oc ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=0.2,color='grey'),showlegend = F)
+    }
+    else if (length(input$result_table_cells_selected) > 0 & !is.null(v$data)) {
+      file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
+      target_table<-read.csv(file_path,sep='\t',head=TRUE)
+      selected_gene = target_table[input$result_table_cells_selected[1],7]
+      
+      tc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] != 0)
+      oc <- expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] == 0)
+      
+      print(v$data)
       print(selected_gene)
       print(dim(tc))
       
