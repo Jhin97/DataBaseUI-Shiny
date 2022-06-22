@@ -119,9 +119,6 @@ ui <- navbarPage(title = "AdultEncephalon",
                                      fluidRow(column(width = 8,
                                                      offset = 2,
                                                      DTOutput(outputId = "GenePanelTable") %>% withSpinner(color= "#C0C0C0"),
-                                                     actionButton(inputId = "reset",
-                                                                  label = "Reset Table",
-                                                                  style = "background-color: #C0C0C0;"),
                                                      actionButton(inputId = "go",
                                                                   label = "Go!",
                                                                   style = "background-color: #C0C0C0;"),
@@ -219,6 +216,50 @@ server <- function(input, output, session) {
   # Taxonomy
   #===========================================================================================
   
+  
+  #预读取相关数据
+  all_marker_table <- read.csv('../DemoData/clusters_markers_table/all_markers.txt',sep='\t',head=TRUE)
+  umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
+  expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
+  
+  
+  # Conditional Panel 第一页选择node后显示表格
+  output$node_selected <- reactive({
+    if (length(input$node) > 0) {
+      TRUE
+    }
+  })
+  outputOptions(output, "node_selected", suspendWhenHidden = FALSE) 
+  
+  # Observe event
+  v <- reactiveValues(data = NULL)
+  
+  gene_re <- reactive({
+    if (is.null(v$data)) return("CCR7")
+    v$data
+  })
+  
+  TaxPanel_click_re <- reactive({
+    file_path<-paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
+    target_table<-read.csv(file_path,sep='\t',head=TRUE)
+    target_table[input$tbl_cells_selected[1],7]
+  })
+  
+  GenePanel_click_re <- reactive({
+    all_marker_table[input$GenePanelTable_cells_selected[1],7]
+  })
+  
+  
+  observeEvent(input$search_gene,{
+    updateNavbarPage(session,"lb",selected = "genes")
+    v$data <- TaxPanel_click_re()
+  })
+  
+  observeEvent(input$go,{
+    v$data <- GenePanel_click_re()
+  })
+  
+  
   # Plot collapsible tree
   output$plot <- renderCollapsibleTree({
     collapsibleTree(dtree, 
@@ -236,69 +277,6 @@ server <- function(input, output, session) {
       datatable(target_table,selection = list(mode="single",target="cell"))
     }
   })
-  
-  # Observe event
-  v <- reactiveValues(data = FALSE)
-  z <- reactiveValues(status = FALSE)
-  
-  gene_re <- reactive({
-    if (v$data == FALSE) {
-      "CCR7"
-    } else {
-      file_path = paste('../DemoData/clusters_markers_table/',tail(input$node, n=1),'_markers_table.txt',sep='')
-      target_table = read.csv(file_path,sep='\t',head=TRUE)
-      target_table[input$tbl_cells_selected[1],7]
-    }
-  })
-  
-  expression_df <- reactive({
-    umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
-    expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
-    
-    if (z$status == FALSE){
-      list(tc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,CCR7) %>% filter(CCR7 != 0),
-           oc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,CCR7) %>% filter(CCR7 == 0))
-    } else {
-      selected_gene = all_marker_table[input$GenePanelTable_cells_selected[1],7]
-      list(tc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] != 0),
-           oc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[selected_gene]]) %>% filter(.data[[selected_gene]] == 0))
-      
-    }
-  })
-  
-  observeEvent(input$search_gene,{
-    updateNavbarPage(session,"lb",selected = "genes")
-    v$data = TRUE
-  })
-  
-  observeEvent(input$go,{
-    z$status = TRUE
-  })
-  
-  all_marker_table <- read.csv('../DemoData/clusters_markers_table/all_markers.txt',sep='\t',head=TRUE)
-  
-  # 第三页面的table，直接跳转默认搜索CCR7基因，或者根据第一个表格上选择的基因跳转
-  output$GenePanelTable <- renderDT({
-    datatable(all_marker_table,selection = list(mode="single",target="cell"),options = list(search = list(search = gene_re())))
-    
-  })
-  
-  
-  
-  
-  # 第三页面的tsne plot，直接跳转默认CCR7基因，或者根据当前页面表格上选择的基因跳转
-  output$seurat_umap_2d_G <- renderPlotly({
-    
-    #print(all_marker_table[input$GenePanelTable_cells_selected[1],7])
-    umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
-    expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
-    
-    plot_ly(type = 'scatter', mode = 'markers') %>% 
-      add_markers(data = expression_df()[['tc']] ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
-      add_markers(data = expression_df()[['oc']] ,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=0.2,color='grey'),showlegend = F)
-    
-  })
-  
   
   # Plot umap in first panel
   output$seurat_umap_2d <- renderPlotly({
@@ -330,6 +308,10 @@ server <- function(input, output, session) {
     }
   })
   
+  
+  # Taxonomy
+  #===========================================================================================
+  
   # Plot umap in second panel
   output$seurat_umap_2d_C <- renderPlotly({
     umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
@@ -344,21 +326,36 @@ server <- function(input, output, session) {
       add_markers(data = tsne_table ,x =   ~tSNE_1, y =  ~tSNE_2,split= ~x, marker = list(opacity=input$opacity,size=input$p_size))
   })
   
-
-
-
   
+  # Gene
+  #===========================================================================================
   
-  
-  
-  
-  # Conditional Panel 
-  output$node_selected <- reactive({
-    if (length(input$node) > 0) {
-      TRUE
-    }
+  # 第三页面的table，直接跳转默认搜索CCR7基因，或者根据第一个表格上选择的基因跳转
+  output$GenePanelTable <- renderDT({
+    datatable(all_marker_table,selection = list(mode="single",target="cell"),options = list(search = list(search = gene_re())))
+    
   })
-  outputOptions(output, "node_selected", suspendWhenHidden = FALSE) 
+  
+  
+  # 第三页面的tsne plot，直接跳转默认CCR7基因，或者根据当前页面表格上选择的基因跳转
+  output$seurat_umap_2d_G <- renderPlotly({
+    
+    validate(
+      need(gene_re() %in% all_marker_table$gene,"Gene expression not detected in this dataset!")
+    )
+    
+    tc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] != 0)
+    oc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] == 0)
+    
+    plot_ly(type = 'scatter', mode = 'markers') %>% 
+      add_markers(data = tc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
+      add_markers(data = oc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=0.2,color='grey'),showlegend = F)
+    
+  })
+  
+  output$ortho <- renderDT({
+    
+  })
   
   
   
