@@ -202,7 +202,15 @@ ui <- navbarPage(title = "AdultEncephalon",
                                                                  withSpinner(color= "#C0C0C0")))
                                                
                                       ),
-                          ),)
+                                      tabPanel(title = "Alignment",
+                                               fluidRow(
+                                                 column(width = 10,
+                                                        textOutput(outputId = "msa") %>% 
+                                                          withSpinner(color= "#C0C0C0"))
+                                               )
+                                      ),
+                                      
+                          ))
 )
 
 server <- function(input, output, session) {
@@ -220,7 +228,8 @@ server <- function(input, output, session) {
   #预读取相关数据
   all_marker_table <- read.csv('../DemoData/clusters_markers_table/all_markers.txt',sep='\t',head=TRUE)
   umap_table = read.csv('../DemoData/clusters_embeddings_table/umap.txt',sep='\t')
-  expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_umap.txt',sep='\t'))
+  expression_table = data.frame(read.csv('../DemoData/clusters_markers_table/merge_expression_embeddings.txt',sep='\t'))
+  Orthologs_table <- read.csv('../DemoData/Orthologs_table/example_table.txt',sep='\t')
   
   
   # Conditional Panel 第一页选择node后显示表格
@@ -258,6 +267,7 @@ server <- function(input, output, session) {
   observeEvent(input$go,{
     v$data <- GenePanel_click_re()
   })
+  
   
   
   # Plot collapsible tree
@@ -337,24 +347,42 @@ server <- function(input, output, session) {
   })
   
   
-  # 第三页面的tsne plot，直接跳转默认CCR7基因，或者根据当前页面表格上选择的基因跳转
+  # 第三页面的umap plot，直接跳转默认CCR7基因，或者根据当前页面表格上选择的基因跳转
   output$seurat_umap_2d_G <- renderPlotly({
     
     validate(
       need(gene_re() %in% all_marker_table$gene,"Gene expression not detected in this dataset!")
     )
     
-    tc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] != 0)
-    oc = expression_table %>% select(Row.names,x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] == 0)
+    tc = expression_table %>% select(Row.names,x.x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] != 0)
+    oc = expression_table %>% select(Row.names,x.x,UMAP_1,UMAP_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] == 0)
     
     plot_ly(type = 'scatter', mode = 'markers') %>% 
-      add_markers(data = tc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
-      add_markers(data = oc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x, marker = list(opacity=0.2,color='grey'),showlegend = F)
+      add_markers(data = tc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x.x, marker = list(opacity=1,color='blue'),showlegend = F)%>%
+      add_markers(data = oc,x =  ~UMAP_1, y = ~UMAP_2,split= ~x.x, marker = list(opacity=0.2,color='grey'),showlegend = F)
+    
+  })
+  
+  # 第三页面的tsne plot，直接跳转默认CCR7基因，或者根据当前页面表格上选择的基因跳转
+  output$seurat_tsne_2d_G <- renderPlotly({
+    
+    validate(
+      need(gene_re() %in% all_marker_table$gene,"Gene expression not detected in this dataset!")
+    )
+    
+    tc = expression_table %>% select(Row.names,x.y,tSNE_1,tSNE_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] != 0)
+    oc = expression_table %>% select(Row.names,x.y,tSNE_1,tSNE_2,.data[[gene_re()]]) %>% filter(.data[[gene_re()]] == 0)
+    
+    plot_ly(type = 'scatter', mode = 'markers') %>% 
+      add_markers(data = tc,x =  ~tSNE_1, y = ~tSNE_2,split= ~x.y, marker = list(opacity=1,color='blue'),showlegend = F)%>%
+      add_markers(data = oc,x =  ~tSNE_1, y = ~tSNE_2,split= ~x.y, marker = list(opacity=0.2,color='grey'),showlegend = F)
     
   })
   
   output$ortho <- renderDT({
-    
+    datatable(Orthologs_table,
+              escape = FALSE,
+              )
   })
   
   
